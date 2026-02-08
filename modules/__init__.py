@@ -5,7 +5,7 @@ Lyrics Download and Translate - Modules
 from .config import config, Config
 from .proxy import proxy_handler, ProxyHandler
 from .translators import (
-    MultiTranslator,
+    TranslationManager,
     GoogleTranslator,
     BaiduTranslator,
     YoudaoTranslator
@@ -17,7 +17,7 @@ __all__ = [
     'Config',
     'proxy_handler',
     'ProxyHandler',
-    'MultiTranslator',
+    'TranslationManager',
     'GoogleTranslator',
     'BaiduTranslator',
     'YoudaoTranslator',

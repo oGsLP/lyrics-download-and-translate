@@ -63,3 +63,18 @@ class ProxyHandler:
 
 # Global proxy handler instance
 proxy_handler = ProxyHandler()
+
+
+def get_proxy_opener(config_path=None):
+    """Get proxy opener (compatibility function)."""
+    # If we need to reload config from a specific path
+    if config_path:
+        config.reload()
+    return proxy_handler._opener
+
+
+def get_config(config_path=None):
+    """Get config (compatibility function)."""
+    if config_path:
+        config.reload()
+    return config._config
