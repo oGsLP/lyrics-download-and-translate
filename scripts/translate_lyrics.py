@@ -1,285 +1,188 @@
 #!/usr/bin/env python3
 """
-Translate lyrics to Chinese
-
-Usage:
-    python translate_lyrics.py <input_file> [output_path]
-    python translate_lyrics.py "lyrics/Crime - Beyond Awareness.txt" "output/"
-
-Arguments:
-    input_file: Path to lyrics file
-    output_path: Optional output directory (default: same as input)
-
-Output:
-    Saves translated lyrics to: {output_path}/{Artist} - {Song} (translated chinese).txt
-
-Note:
-    This script requires one of the following translation methods:
-    1. Google Translate (default) - requires googletrans or deep_translator package
-    2. Youdao Translate - requires API key
-    3. Baidu Translate - requires API key
+Translate lyrics to Chinese with line-by-line format
+Supports: Google Translate (free), Baidu API, Youdao API
 """
 
 import sys
 import os
 import re
+import json
 import io
+import time
+import hashlib
+import random
+import urllib.request
+import urllib.parse
 from pathlib import Path
 
-# Fix Windows console encoding
+# Fix Windows encoding
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 
-def translate_with_google(text, source='auto', target='zh-CN'):
-    """
-    Translate text using Google Translate via deep_translator library.
+def load_config():
+    """Load configuration from config.json."""
+    possible_paths = [
+        Path(__file__).parent.parent / "config.json",
+        Path.cwd() / "config.json",
+    ]
     
-    Args:
-        text: Text to translate
-        source: Source language code (default: auto-detect)
-        target: Target language code (default: zh-CN for Chinese)
-        
-    Returns:
-        str: Translated text or None if failed
-    """
+    for path in possible_paths:
+        if path.exists():
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+    
+    return {"proxy": {"enabled": False}, "translation": {}}
+
+
+def is_section_marker(line):
+    """Check if line is a section marker like [Verse 1]."""
+    return bool(re.match(r'^\[.+\]$', line.strip()))
+
+
+def translate_with_google(texts, delay=0.1):
+    """Translate texts using Google Translate."""
     try:
-        # Try deep_translator first (more reliable)
         from deep_translator import GoogleTranslator
+        translator = GoogleTranslator(source='auto', target='zh-CN')
         
-        # GoogleTranslator has a character limit per request, so we need to chunk
-        max_chunk = 4000
-        chunks = []
-        
-        # Split by paragraphs to keep context
-        paragraphs = text.split('\n\n')
-        current_chunk = ""
-        
-        for para in paragraphs:
-            if len(current_chunk) + len(para) < max_chunk:
-                current_chunk += para + "\n\n"
-            else:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                current_chunk = para + "\n\n"
-        
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-        
-        # Translate each chunk
-        translated_chunks = []
-        translator = GoogleTranslator(source=source, target=target)
-        
-        for i, chunk in enumerate(chunks):
-            if chunk.strip():
+        results = {}
+        total = len(texts)
+        for i, text in enumerate(texts):
+            if text.strip():
                 try:
-                    translated = translator.translate(chunk)
-                    translated_chunks.append(translated)
+                    results[text] = translator.translate(text)
+                    if (i + 1) % 10 == 0:
+                        print(f"    Progress: {i + 1}/{total}")
                 except Exception as e:
-                    print(f"Warning: Failed to translate chunk {i+1}: {e}")
-                    translated_chunks.append(f"[Translation error for section {i+1}]")
-        
-        return '\n\n'.join(translated_chunks)
-        
-    except ImportError:
-        # Fallback to googletrans
-        try:
-            from googletrans import Translator
-            translator = Translator()
-            
-            # googletrans also has limits, chunk if necessary
-            max_chunk = 4000
-            if len(text) <= max_chunk:
-                result = translator.translate(text, src=source, dest=target)
-                return result.text if result else None
+                    print(f"    Warning: Failed to translate line {i + 1}: {e}")
+                    results[text] = text
+                if i < len(texts) - 1:
+                    time.sleep(delay)
             else:
-                # Split and translate in chunks
-                paragraphs = text.split('\n\n')
-                chunks = []
-                current_chunk = ""
-                
-                for para in paragraphs:
-                    if len(current_chunk) + len(para) < max_chunk:
-                        current_chunk += para + "\n\n"
-                    else:
-                        if current_chunk:
-                            chunks.append(current_chunk.strip())
-                        current_chunk = para + "\n\n"
-                
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                
-                translated_chunks = []
-                for chunk in chunks:
-                    if chunk.strip():
-                        result = translator.translate(chunk, src=source, dest=target)
-                        if result:
-                            translated_chunks.append(result.text)
-                
-                return '\n\n'.join(translated_chunks)
-                
-        except ImportError:
-            print("[X] Translation library not found.")
-            print("    Install one of the following:")
-            print("    pip install deep_translator")
-            print("    pip install googletrans==4.0.0-rc1")
-            return None
-        except Exception as e:
-            print(f"[X] Translation error: {e}")
-            return None
-    except Exception as e:
-        print(f"[X] Translation error: {e}")
-        return None
+                results[text] = text
+        return results
+    except ImportError:
+        print("    [X] deep_translator not found. Install: pip install deep_translator")
+        return {text: text for text in texts}
+
+
+def translate_with_baidu(text, appid, secret_key):
+    """Translate using Baidu API."""
+    if not text.strip():
+        return text
+    
+    salt = random.randint(32768, 65536)
+    sign_str = appid + text + str(salt) + secret_key
+    sign = hashlib.md5(sign_str.encode()).hexdigest()
+    
+    params = {
+        'q': text,
+        'from': 'auto',
+        'to': 'zh',
+        'appid': appid,
+        'salt': salt,
+        'sign': sign
+    }
+    
+    try:
+        url = 'https://fanyi-api.baidu.com/api/trans/vip/translate?' + urllib.parse.urlencode(params)
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            if 'trans_result' in result:
+                return result['trans_result'][0]['dst']
+    except Exception:
+        pass
+    
+    return text
 
 
 def parse_lyrics_file(filepath):
-    """
-    Parse a lyrics file and extract metadata and lyrics.
-    
-    Args:
-        filepath: Path to lyrics file
-        
-    Returns:
-        tuple: (artist, song, lyrics) or None if failed
-    """
+    """Parse lyrics file and return (artist, song, lines)."""
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        lines = content.split('\n')
-        
-        # First line should be "Artist - Song"
-        header = lines[0].strip()
-        header_match = re.match(r'(.+?)\s+-\s+(.+)', header)
-        
-        if header_match:
-            artist = header_match.group(1).strip()
-            song = header_match.group(2).strip()
+        filename = Path(filepath).stem
+        if ' - ' in filename:
+            artist, song = filename.split(' - ', 1)
         else:
-            artist = "Unknown Artist"
-            song = "Unknown Song"
+            artist, song = "Unknown Artist", "Unknown Song"
         
-        # Find the separator line and extract lyrics after it
-        lyrics_start = 0
-        for i, line in enumerate(lines):
-            if '=' in line and len(line) > 20:  # Likely the separator
-                lyrics_start = i + 1
-                break
-        
-        if lyrics_start == 0:
-            # Look for first empty line after header
-            for i in range(1, min(len(lines), 5)):
-                if lines[i].strip() == '':
-                    lyrics_start = i + 1
-                    break
-        
-        lyrics = '\n'.join(lines[lyrics_start:]).strip()
-        
-        return artist, song, lyrics
-        
+        return artist.strip(), song.strip(), content.split('\n')
     except Exception as e:
-        print(f"❌ Error reading file: {e}")
+        print(f"[X] Error reading file: {e}")
         return None
-
-
-def save_translated_lyrics(artist, song, original_lyrics, translated_lyrics, output_path):
-    """
-    Save translated lyrics to a file with both original and translation.
-    
-    Args:
-        artist: Artist name
-        song: Song title
-        original_lyrics: Original lyrics text
-        translated_lyrics: Translated lyrics text
-        output_path: Output directory
-        
-    Returns:
-        str: Path to saved file
-    """
-    # Clean filename
-    safe_artist = re.sub(r'[<>:"/\\|?*]', '', artist).strip()
-    safe_song = re.sub(r'[<>:"/\\|?*]', '', song).strip()
-    
-    filename = f"{safe_artist} - {safe_song} (translated chinese).txt"
-    filepath = Path(output_path) / filename
-    
-    # Ensure output directory exists
-    Path(output_path).mkdir(parents=True, exist_ok=True)
-    
-    with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(f"{artist} - {song}\n")
-        f.write("=" * 50 + "\n")
-        f.write("Original Lyrics | 中文翻译\n")
-        f.write("=" * 50 + "\n\n")
-        
-        # Write original and translation side by side or interleaved
-        # For better readability, we'll do paragraph by paragraph
-        orig_paragraphs = original_lyrics.split('\n\n')
-        trans_paragraphs = translated_lyrics.split('\n\n')
-        
-        for i, orig in enumerate(orig_paragraphs):
-            if orig.strip():
-                f.write("【原文】\n")
-                f.write(orig.strip() + "\n\n")
-                
-                if i < len(trans_paragraphs) and trans_paragraphs[i].strip():
-                    f.write("【翻译】\n")
-                    f.write(trans_paragraphs[i].strip() + "\n\n")
-                
-                f.write("-" * 30 + "\n\n")
-    
-    return str(filepath)
 
 
 def main():
     if len(sys.argv) < 2:
         print("Usage: python translate_lyrics.py <input_file> [output_path]")
-        print("Example: python translate_lyrics.py \"lyrics/Song.txt\" \"output/\"")
         sys.exit(1)
     
     input_file = sys.argv[1]
+    output_path = sys.argv[2] if len(sys.argv) > 2 else Path(input_file).parent
+    config = load_config()
     
-    # Default output path is same as input file's directory
-    if len(sys.argv) > 2:
-        output_path = sys.argv[2]
-    else:
-        output_path = Path(input_file).parent
+    print(f"Reading: {input_file}")
     
-    print(f"Reading lyrics from: {input_file}")
-    
-    # Parse the lyrics file
     result = parse_lyrics_file(input_file)
     if not result:
-        print("[X] Could not parse lyrics file")
-        print("    Make sure the file follows the format:")
-        print("    Artist Name - Song Title")
-        print("    ==================================================")
-        print("    Lyrics content...")
         sys.exit(1)
     
-    artist, song, lyrics = result
-    print(f"Found lyrics: {artist} - {song}")
-    print(f"Lyrics length: {len(lyrics)} characters")
+    artist, song, lines = result
+    print(f"Found: {artist} - {song}")
+    print(f"Lines: {len(lines)}")
+    
+    # Filter lines to translate (skip empty and section markers)
+    to_translate = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not is_section_marker(stripped):
+            to_translate.append(stripped)
+    
+    print(f"Translatable: {len(to_translate)}")
     
     # Translate
-    print("Translating to Chinese...")
-    print("(This may take a moment for longer songs)")
+    print("Translating with Google...")
+    translations = translate_with_google(to_translate, delay=0.3)
     
-    translated = translate_with_google(lyrics)
-    if not translated:
-        print("[X] Translation failed")
-        print("    Common causes:")
-        print("    - No internet connection")
-        print("    - Google Translate rate limit (wait a moment and retry)")
-        print("    - Missing translation library (pip install deep_translator)")
-        sys.exit(1)
+    # Build output - FIX: section markers only appear once
+    output_lines = []
+    trans_idx = 0
     
-    print("[OK] Translation completed")
+    for line in lines:
+        stripped = line.strip()
+        
+        if not stripped:
+            output_lines.append('')  # Empty line for paragraph break
+        elif is_section_marker(stripped):
+            output_lines.append(stripped)  # Section marker - only once!
+            output_lines.append('')  # Empty line after marker
+        else:
+            orig = to_translate[trans_idx]
+            trans = translations.get(orig, orig)
+            output_lines.append(orig)
+            output_lines.append(trans)
+            trans_idx += 1
     
-    # Save translated lyrics
-    filepath = save_translated_lyrics(artist, song, lyrics, translated, output_path)
-    print(f"[OK] Saved translated lyrics to: {filepath}")
+    # Save
+    safe_artist = re.sub(r'[<>:"/\\|?*]', '', artist).strip()
+    safe_song = re.sub(r'[<>:"/\\|?*]', '', song).strip()
+    filename = f"{safe_artist} - {safe_song} (translated chinese).txt"
+    filepath = Path(output_path) / filename
+    Path(output_path).mkdir(parents=True, exist_ok=True)
+    
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(output_lines))
+    
+    print(f"[OK] Saved: {filepath}")
 
 
 if __name__ == "__main__":

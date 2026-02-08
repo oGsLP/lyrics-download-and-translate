@@ -1,6 +1,6 @@
 {
   "proxy": {
-    "enabled": false,
+    "enabled": true,
     "http": "http://127.0.0.1:7890",
     "https": "http://127.0.0.1:7890"
   },
@@ -16,7 +16,7 @@
   },
   "settings": {
     "timeout": 30,
-    "max_retries": 3,
+    "max_retries": 2,
     "retry_delay": 2
   }
 }
