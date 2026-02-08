@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Download lyrics from multiple sources (Genius, AZLyrics, Letras, Musixmatch)
+Download lyrics from multiple sources (Genius, AZLyrics, Letras, Musixmatch, YouTube)
 
 Usage:
     python download_lyrics.py "Artist Name" "Song Title" [output_path]
@@ -11,9 +11,21 @@ Arguments:
     song: The song title
     output_path: Optional output directory (default: current directory)
 
+Sources:
+    - Genius.com: Primary source with comprehensive lyrics database
+    - AZLyrics.com: Alternative source with simple, clean lyrics
+    - Musixmatch.com: Large lyrics database with community contributions
+    - Letras.com: Good for Portuguese/Spanish songs
+    - YouTube: Extracts lyrics from video descriptions (many artists include full lyrics)
+
 Output:
     Saves lyrics to: {output_path}/{Artist} - {Song}.txt
     Format: Clean lyrics with section markers [Verse], [Chorus], etc.
+
+Note on YouTube source:
+    Many artists now include full lyrics in their official music video descriptions.
+    This script searches YouTube videos and extracts lyrics from descriptions
+    that contain "Lyrics:" sections or formatted lyrics text.
 """
 
 import sys
@@ -262,6 +274,82 @@ def search_letras(artist: str, song: str) -> tuple:
     return False, None, None, None, None
 
 
+def search_youtube(artist: str, song: str) -> tuple:
+    """
+    Search YouTube video descriptions for lyrics.
+    Many artists include full lyrics in video descriptions.
+    """
+    query = f"{artist} {song} lyrics"
+    search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
+    }
+    
+    try:
+        # First, search for videos
+        req = urllib.request.Request(search_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as response:
+            html_content = response.read().decode('utf-8')
+            
+            # Extract video IDs from search results
+            # Look for /watch?v=VIDEO_ID patterns
+            video_ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html_content)
+            
+            if not video_ids:
+                return False, None, None, None, None
+            
+            # Try first few videos
+            for video_id in video_ids[:3]:
+                video_url = f"https://www.youtube.com/watch?v={video_id}"
+                
+                try:
+                    req = urllib.request.Request(video_url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=30) as video_response:
+                        video_html = video_response.read().decode('utf-8')
+                        
+                        # Method 1: Look for lyrics in description (initial data)
+                        # YouTube stores description in ytInitialPlayerResponse or meta tags
+                        
+                        # Try to find lyrics section in description
+                        # Look for "Lyrics:" or similar markers
+                        lyrics_match = re.search(
+                            r'(?:Lyrics|LYRICS|歌词)[:\s]*\n?(.*?)(?:\n\n|\Z|Subscribe|Follow|Instagram|Twitter)',
+                            video_html,
+                            re.IGNORECASE | re.DOTALL
+                        )
+                        
+                        if lyrics_match:
+                            lyrics = lyrics_match.group(1).strip()
+                            lyrics = clean_lyrics(lyrics)
+                            
+                            if lyrics and len(lyrics) > 100:  # Ensure it's substantial
+                                return True, song, artist, lyrics, "YouTube"
+                        
+                        # Method 2: Look for description in meta tag
+                        desc_match = re.search(
+                            r'<meta[^>]*name="description"[^>]*content="([^"]*)"',
+                            video_html
+                        )
+                        
+                        if desc_match:
+                            description = desc_match.group(1)
+                            # Check if description contains lyrics (usually has [Verse], [Chorus] etc)
+                            if '[' in description and len(description) > 200:
+                                lyrics = clean_lyrics(description)
+                                if lyrics:
+                                    return True, song, artist, lyrics, "YouTube"
+                                    
+                except Exception as e:
+                    continue
+                    
+    except Exception as e:
+        print(f"    YouTube error: {e}")
+    
+    return False, None, None, None, None
+
+
 def find_lyrics_multi_source(artist: str, song: str) -> tuple:
     """
     Try multiple sources to find lyrics.
@@ -272,6 +360,7 @@ def find_lyrics_multi_source(artist: str, song: str) -> tuple:
         ("AZLyrics", search_azlyrics),
         ("Musixmatch", search_musixmatch),
         ("Letras.com", search_letras),
+        ("YouTube", search_youtube),
     ]
     
     for source_name, source_func in sources:
@@ -317,6 +406,7 @@ def main():
         print("  2. AZLyrics.com")
         print("  3. Musixmatch.com")
         print("  4. Letras.com")
+        print("  5. YouTube (video descriptions)")
         print("")
         print("Output format: Clean lyrics with [Verse], [Chorus] markers preserved")
         sys.exit(1)
