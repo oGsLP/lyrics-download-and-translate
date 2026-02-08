@@ -1,0 +1,17 @@
+{
+  "_comment": "API configuration for translation services (optional)",
+  "_comment2": "Without API keys, only Google Translate will be used",
+  "_comment3": "Get your API keys from:",
+  "_comment4": "  - Baidu: https://fanyi-api.baidu.com/",
+  "_comment5": "  - Youdao: https://ai.youdao.com/",
+  
+  "baidu": {
+    "appid": "your_baidu_appid_here",
+    "secret_key": "your_baidu_secret_key_here"
+  },
+  
+  "youdao": {
+    "appkey": "your_youdao_appkey_here",
+    "secret_key": "your_youdao_secret_key_here"
+  }
+}

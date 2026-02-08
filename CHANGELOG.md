@@ -1,5 +1,92 @@
 # Changelog - Lyrics Download and Translate
 
+## Version 2.0.0 (2026-02-08) - MAJOR UPDATE: Multi-Source Support
+
+### 🎉 New Features
+
+#### 1. Multi-Source Lyrics Search
+**Problem**: Genius.com is often blocked or rate-limited  
+**Solution**: Automatically try multiple lyrics sources
+
+**New Sources Supported**:
+- ✅ **Genius.com** (primary)
+- ✅ **AZLyrics.com** 
+- ✅ **Musixmatch.com**
+- ✅ **Letras.com** (Portuguese/Spanish songs)
+
+**Usage**:
+```bash
+python scripts/download_lyrics_v2.py "Artist" "Song" ./lyrics/
+```
+
+The script will automatically try all sources in order until lyrics are found.
+
+#### 2. Multi-Source Translation
+**Problem**: Google Translate may be rate-limited or unavailable in some regions  
+**Solution**: Support multiple translation APIs with automatic fallback
+
+**Translation Sources**:
+1. **Google Translate** (free, no API key needed)
+2. **Baidu Translate** (requires API key, good for China)
+3. **Youdao Translate** (requires API key, good for China)
+
+**Usage**:
+```bash
+# Using Google Translate only (default)
+python scripts/translate_lyrics_v2.py "lyrics/Song.txt" ./output/
+
+# Using multiple sources with config
+python scripts/translate_lyrics_v2.py "lyrics/Song.txt" ./output/ --config config.json
+```
+
+**Config File Format** (`config.json`):
+```json
+{
+  "baidu": {
+    "appid": "your_appid",
+    "secret_key": "your_secret_key"
+  },
+  "youdao": {
+    "appkey": "your_appkey",
+    "secret_key": "your_secret_key"
+  }
+}
+```
+
+### 🔧 Technical Improvements
+
+#### New Files Added:
+- `scripts/download_lyrics_v2.py` - Multi-source lyrics downloader
+- `scripts/translate_lyrics_v2.py` - Multi-source translation
+- `scripts/lyrics_sources.py` - Modular lyrics source classes
+- `scripts/translate_sources.py` - Modular translation source classes
+- `scripts/config.example.json` - Example API configuration
+
+#### Architecture Changes:
+- **Modular Design**: Each source is now a separate class
+- **Plugin System**: Easy to add new lyrics or translation sources
+- **Automatic Fallback**: Seamlessly switches between sources
+- **Better Error Handling**: Each source failure is logged but doesn't stop the process
+
+### 📊 Source Reliability
+
+| Source | Free | Speed | Coverage | Notes |
+|--------|------|-------|----------|-------|
+| Genius | ✅ | Fast | High | May be blocked in some regions |
+| AZLyrics | ✅ | Medium | Medium | Simple, reliable |
+| Musixmatch | ✅ | Medium | High | Sometimes requires login |
+| Letras | ✅ | Medium | Medium | Best for Spanish/Portuguese |
+
+| Translation | Free | Speed | Accuracy | Setup |
+|-------------|------|-------|----------|-------|
+| Google | ✅ | Fast | High | No setup needed |
+| Baidu | ✅* | Fast | High | Requires API key |
+| Youdao | ✅* | Fast | High | Requires API key |
+
+*Free tier available with API key
+
+---
+
 ## Version 1.1.0 (2026-02-08)
 
 ### Improvements
