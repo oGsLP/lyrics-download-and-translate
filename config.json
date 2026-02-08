@@ -1,0 +1,44 @@
+{
+  "_comment": "Lyrics Download and Translate - Configuration File",
+  "_comment2": "Configure proxy settings and translation API keys",
+  
+  "proxy": {
+    "_comment": "Proxy configuration for accessing blocked sites",
+    "_comment2": "Supports HTTP, HTTPS, SOCKS4, SOCKS5 proxies",
+    "_comment3": "Format: protocol://username:password@host:port",
+    "_comment4": "Examples:",
+    "_comment5": "  - Clash default: http://127.0.0.1:7890",
+    "_comment6": "  - Clash mixed: http://127.0.0.1:7890 (handles both HTTP/HTTPS)",
+    "_comment7": "  - With auth: http://user:pass@proxy.example.com:8080",
+    "_comment8": "  - SOCKS5: socks5://127.0.0.1:1080",
+    "_comment9": "Leave empty or remove to disable proxy",
+    
+    "enabled": true,
+    "http": "http://127.0.0.1:7890",
+    "https": "http://127.0.0.1:7890"
+  },
+  
+  "translation": {
+    "_comment": "Translation API configuration (optional)",
+    "_comment2": "Without these, only Google Translate will be used",
+    
+    "baidu": {
+      "_comment": "Get API keys from: https://fanyi-api.baidu.com/",
+      "appid": "",
+      "secret_key": ""
+    },
+    
+    "youdao": {
+      "_comment": "Get API keys from: https://ai.youdao.com/",
+      "appkey": "",
+      "secret_key": ""
+    }
+  },
+  
+  "settings": {
+    "_comment": "General settings",
+    "timeout": 30,
+    "max_retries": 3,
+    "retry_delay": 2
+  }
+}

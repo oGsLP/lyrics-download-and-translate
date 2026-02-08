@@ -45,6 +45,61 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
+# Import proxy configuration
+script_dir = Path(__file__).parent
+sys.path.insert(0, str(script_dir))
+from proxy_config import get_proxy_opener, get_config
+
+# Initialize proxy on module load
+_proxy_opener = None
+_config = None
+
+def init_proxy(config_path=None):
+    """Initialize proxy configuration."""
+    global _proxy_opener, _config
+    _config = get_config(config_path)
+    _proxy_opener = get_proxy_opener(config_path)
+    
+    proxy_enabled = _config.get("proxy", {}).get("enabled", False)
+    if proxy_enabled:
+        print("  [Proxy] Enabled")
+        http_proxy = _config.get("proxy", {}).get("http", "")
+        https_proxy = _config.get("proxy", {}).get("https", "")
+        if http_proxy:
+            print(f"  [Proxy] HTTP: {http_proxy}")
+        if https_proxy:
+            print(f"  [Proxy] HTTPS: {https_proxy}")
+    return _proxy_opener
+
+
+def make_request(url: str, headers: dict = None, timeout: int = 30, proxy_opener=None):
+    """
+    Make HTTP request with proxy support if configured.
+    
+    Args:
+        url: URL to request
+        headers: Optional headers dictionary
+        timeout: Request timeout
+        proxy_opener: Optional proxy opener to use
+        
+    Returns:
+        Response object
+    """
+    if headers is None:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+    
+    req = urllib.request.Request(url, headers=headers)
+    
+    # Use provided proxy opener or global one
+    opener = proxy_opener if proxy_opener else _proxy_opener
+    
+    if opener:
+        return opener.open(req, timeout=timeout)
+    else:
+        return urllib.request.urlopen(req, timeout=timeout)
+
 
 def clean_lyrics(lyrics: str) -> str:
     """
@@ -96,7 +151,7 @@ def search_genius(artist: str, song: str, max_retries: int = 3) -> tuple:
     for attempt in range(max_retries):
         try:
             req = urllib.request.Request(search_url, headers=headers)
-            with urllib.request.urlopen(req, timeout=30) as response:
+            with make_request(search_url, headers=headers, timeout=30) as response:
                 data = json.loads(response.read().decode('utf-8'))
                 
                 sections = data.get('response', {}).get('sections', [])
@@ -149,8 +204,7 @@ def extract_genius_lyrics(url: str) -> tuple:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with make_request(url, headers=headers, timeout=30) as response:
             html_content = response.read().decode('utf-8')
             
             title_match = re.search(r'<meta property="og:title" content="([^"]+)"', html_content)
@@ -203,8 +257,7 @@ def search_azlyrics(artist: str, song: str) -> tuple:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with make_request(url, headers=headers, timeout=30) as response:
             html_content = response.read().decode('utf-8')
             
             match = re.search(r'<!-- Usage of azlyrics\.com content.*?-->(.*?)<!--', 
@@ -230,8 +283,7 @@ def search_musixmatch(artist: str, song: str) -> tuple:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with make_request(url, headers=headers, timeout=30) as response:
             html_content = response.read().decode('utf-8')
             
             lyrics_spans = re.findall(r'<span[^>]*class="[^"]*lyrics[^"]*"[^>]*>(.*?)</span>', 
@@ -257,8 +309,7 @@ def search_letras(artist: str, song: str) -> tuple:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with make_request(url, headers=headers, timeout=30) as response:
             html_content = response.read().decode('utf-8')
             
             match = re.search(r'<article[^>]*>(.*?)</article>', html_content, re.DOTALL)
@@ -305,8 +356,7 @@ def search_youtube(artist: str, song: str) -> tuple:
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
                 
                 try:
-                    req = urllib.request.Request(video_url, headers=headers)
-                    with urllib.request.urlopen(req, timeout=30) as video_response:
+                    with make_request(video_url, headers=headers, timeout=30) as video_response:
                         video_html = video_response.read().decode('utf-8')
                         
                         # Method 1: Look for lyrics in description (initial data)
@@ -399,7 +449,11 @@ def save_lyrics(artist: str, song: str, lyrics: str, output_path: str):
 def main():
     if len(sys.argv) < 3:
         print("Usage: python download_lyrics.py \"Artist Name\" \"Song Title\" [output_path]")
-        print("Example: python download_lyrics.py \"Beyond Awareness\" \"Crime\" \"./lyrics/\"")
+        print("       python download_lyrics.py \"Beyond Awareness\" \"Crime\" \"./lyrics/\"")
+        print("")
+        print("Proxy Configuration:")
+        print("  Create config.json in the skill directory to enable proxy support.")
+        print("  Clash default: http://127.0.0.1:7890")
         print("")
         print("Sources tried (in order):")
         print("  1. Genius.com")
@@ -410,6 +464,9 @@ def main():
         print("")
         print("Output format: Clean lyrics with [Verse], [Chorus] markers preserved")
         sys.exit(1)
+    
+    # Initialize proxy configuration
+    init_proxy()
     
     artist = sys.argv[1]
     song = sys.argv[2]
