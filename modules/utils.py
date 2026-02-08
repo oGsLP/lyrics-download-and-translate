@@ -2,42 +2,10 @@
 Utility functions for lyrics processing.
 """
 
-import html
 import json
 import re
 from pathlib import Path
 from typing import Optional, Tuple, List
-
-
-def clean_lyrics(lyrics: str) -> str:
-    """
-    Clean and format lyrics while preserving structure.
-    Keeps [Verse], [Chorus], [Bridge] markers and maintains line breaks.
-    """
-    if not lyrics:
-        return ""
-    
-    # Decode HTML entities
-    lyrics = html.unescape(lyrics)
-    
-    # Remove HTML tags but preserve content
-    lyrics = re.sub(r'<[^>]+>', '', lyrics)
-    
-    # Normalize line endings
-    lyrics = lyrics.replace('\r\n', '\n').replace('\r', '\n')
-    
-    # Remove excessive blank lines (more than 2 consecutive)
-    lyrics = re.sub(r'\n{3,}', '\n\n', lyrics)
-    
-    # Remove leading/trailing whitespace from each line but keep structure
-    lines = lyrics.split('\n')
-    cleaned_lines = [line.strip() for line in lines]
-    lyrics = '\n'.join(cleaned_lines)
-    
-    # Final cleanup
-    lyrics = lyrics.strip()
-    
-    return lyrics
 
 
 def is_section_marker(line: str) -> bool:
@@ -60,13 +28,13 @@ def parse_lyrics_file(filepath: str) -> Tuple[Optional[str], Optional[str], List
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
-        
+
         filename = Path(filepath).stem
         if ' - ' in filename:
             artist, song = filename.split(' - ', 1)
         else:
             artist, song = "Unknown Artist", "Unknown Song"
-        
+
         return artist.strip(), song.strip(), content.split('\n')
     except Exception as e:
         print(f"[X] Error reading file: {e}")
@@ -88,15 +56,15 @@ def save_lyrics(artist: str, song: str, lyrics: str, output_path: str) -> str:
     """
     safe_artist = sanitize_filename(artist)
     safe_song = sanitize_filename(song)
-    
+
     filename = f"{safe_artist} - {safe_song}.txt"
     filepath = Path(output_path) / filename
-    
+
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(lyrics)
-    
+
     return str(filepath)
 
 
@@ -114,7 +82,7 @@ def load_config(config_paths: Optional[List[str]] = None) -> dict:
         config_paths = [
             str(Path.cwd() / "config.json"),
         ]
-    
+
     for path in config_paths:
         path_obj = Path(path)
         if path_obj.exists():
@@ -123,5 +91,5 @@ def load_config(config_paths: Optional[List[str]] = None) -> dict:
                     return json.load(f)
             except Exception:
                 pass
-    
+
     return {"proxy": {"enabled": False}, "translation": {}}

@@ -2,8 +2,9 @@
 AZLyrics.com lyrics fetcher.
 """
 
-import re
 import html
+import re
+
 from .base import BaseLyricsFetcher, LyricsResult
 
 

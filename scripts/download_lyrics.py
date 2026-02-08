@@ -8,8 +8,8 @@ Usage:
     python download_lyrics.py "Beyond Awareness" "Crime" "./lyrics/"
 """
 
-import sys
 import io
+import sys
 from pathlib import Path
 
 # Fix Windows encoding
@@ -42,18 +42,18 @@ def main():
         print("")
         print("Output format: Clean lyrics with [Verse], [Chorus] markers preserved")
         sys.exit(1)
-    
+
     artist = sys.argv[1]
     song = sys.argv[2]
     output_path = sys.argv[3] if len(sys.argv) > 3 else "."
-    
+
     # Load config and initialize proxy
     possible_paths = [
         str(Path(__file__).parent.parent / "config.json"),
         str(Path.cwd() / "config.json"),
     ]
     config = load_config(possible_paths)
-    
+
     # Initialize proxy
     proxy_opener = get_proxy_opener(possible_paths[0] if possible_paths else None)
     if proxy_opener:
@@ -63,15 +63,15 @@ def main():
             print(f"  [Proxy] HTTP: {proxy_config['http']}")
         if proxy_config.get("https"):
             print(f"  [Proxy] HTTPS: {proxy_config['https']}")
-    
+
     print(f"Searching for: {artist} - {song}")
     print("Will try multiple sources...")
     print()
-    
+
     # Use LyricsSourceManager to fetch lyrics
     manager = LyricsSourceManager(proxy_opener)
     result = manager.fetch_lyrics(artist, song)
-    
+
     if not result.success or not result.lyrics:
         print("[X] Could not find lyrics from any source.")
         print("    Tips:")
@@ -79,11 +79,11 @@ def main():
         print("    - Try using the original artist name")
         print("    - Some songs may not be available on any lyrics site")
         sys.exit(1)
-    
+
     print()
     print(f"Extracted lyrics for: {result.artist} - {result.title}")
     print(f"Source: {result.source}")
-    
+
     # Save lyrics
     filepath = save_lyrics(result.artist or artist, result.title or song, result.lyrics, output_path)
     print(f"[OK] Saved lyrics to: {filepath}")

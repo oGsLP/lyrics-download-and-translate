@@ -10,7 +10,7 @@ from .translators import (
     BaiduTranslator,
     YoudaoTranslator
 )
-from .utils import clean_lyrics, is_section_marker
+from .utils import is_section_marker
 
 __all__ = [
     'config',
@@ -21,6 +21,5 @@ __all__ = [
     'GoogleTranslator',
     'BaiduTranslator',
     'YoudaoTranslator',
-    'clean_lyrics',
     'is_section_marker'
 ]

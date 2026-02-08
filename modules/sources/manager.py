@@ -3,6 +3,7 @@ Lyrics source manager - coordinates multiple lyrics fetchers.
 """
 
 from typing import List
+
 from .base import BaseLyricsFetcher, LyricsResult
 
 

@@ -72,6 +72,7 @@ class GeniusFetcher(BaseLyricsFetcher):
                 lyrics = self._extract_lyrics_from_html(html_content)
 
                 if lyrics:
+                    lyrics = self._clean_lyrics(lyrics)
                     return LyricsResult(
                         success=True,
                         title=song_title,
@@ -127,10 +128,51 @@ class GeniusFetcher(BaseLyricsFetcher):
         if not html_content:
             return ""
 
+        text = html_content
+        
+        # Preserve line breaks from HTML
+        text = re.sub(r'\s*\u003cbr\s*/?\u003e\s*', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*\u003c/p\u003e\s*', '\n\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*\u003cdiv[^>]*\u003e\s*', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*\u003c/div\u003e\s*', '\n', text, flags=re.IGNORECASE)
+        
         # Decode HTML entities
-        text = html.unescape(html_content)
+        text = html.unescape(text)
 
-        # Remove HTML tags
-        text = re.sub(r'<[^>]+>', '', text)
+        # Remove remaining HTML tags
+        text = re.sub(r'\u003c[^\u003e]+\u003e', '', text)
 
         return text.strip()
+    
+    def _clean_lyrics(self, text: str) -> str:
+        """Clean and format lyrics."""
+        if not text:
+            return ""
+        
+        # Remove UI elements
+        text = re.sub(r'^\d+\s*Contributor', '', text)
+        text = re.sub(r'Lyrics\s*$', '', text)
+        
+        # Normalize whitespace
+        lines = text.split('\n')
+        cleaned_lines = []
+        prev_empty = False
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                if not prev_empty:
+                    cleaned_lines.append('')
+                    prev_empty = True
+                continue
+            
+            prev_empty = False
+            cleaned_lines.append(stripped)
+        
+        # Remove leading/trailing empty lines
+        while cleaned_lines and not cleaned_lines[0]:
+            cleaned_lines.pop(0)
+        while cleaned_lines and not cleaned_lines[-1]:
+            cleaned_lines.pop()
+        
+        return '\n'.join(cleaned_lines)
