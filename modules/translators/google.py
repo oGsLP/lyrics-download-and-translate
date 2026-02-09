@@ -6,6 +6,7 @@ import re
 import time
 from typing import List, Dict
 from .base import BaseTranslator
+from ..proxy import get_config
 
 
 class GoogleTranslator(BaseTranslator):
@@ -18,7 +19,26 @@ class GoogleTranslator(BaseTranslator):
     def _init_translator(self):
         try:
             from deep_translator import GoogleTranslator as GT
-            self._translator = GT(source='auto', target='zh-CN')
+            
+            # Get proxy configuration
+            config = get_config()
+            proxy_config = config.get("proxy", {})
+            
+            proxies = None
+            if proxy_config.get("enabled", False):
+                http_proxy = proxy_config.get("http", "")
+                https_proxy = proxy_config.get("https", "")
+                if http_proxy or https_proxy:
+                    proxies = {
+                        "http": http_proxy,
+                        "https": https_proxy if https_proxy else http_proxy
+                    }
+            
+            # Initialize translator with proxy
+            if proxies:
+                self._translator = GT(source='auto', target='zh-CN', proxies=proxies)
+            else:
+                self._translator = GT(source='auto', target='zh-CN')
         except ImportError:
             self._translator = None
 

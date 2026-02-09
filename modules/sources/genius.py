@@ -24,8 +24,15 @@ class GeniusFetcher(BaseLyricsFetcher):
         search_url = f"https://genius.com/api/search/multi?q={urllib.parse.quote(query)}"
 
         try:
-            # Search for song
-            with self._make_request(search_url, timeout=30) as response:
+            # Search for song with proper headers for Genius API
+            search_headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://genius.com/',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+            with self._make_request(search_url, headers=search_headers, timeout=30) as response:
                 data = json.loads(response.read().decode('utf-8'))
 
                 song_url = self._find_song_url(data)
@@ -131,16 +138,16 @@ class GeniusFetcher(BaseLyricsFetcher):
         text = html_content
         
         # Preserve line breaks from HTML
-        text = re.sub(r'\s*\u003cbr\s*/?\u003e\s*', '\n', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*\u003c/p\u003e\s*', '\n\n', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*\u003cdiv[^>]*\u003e\s*', '\n', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*\u003c/div\u003e\s*', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*<br\s*/?>\s*', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*</p>\s*', '\n\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*<div[^>]*>\s*', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*</div>\s*', '\n', text, flags=re.IGNORECASE)
         
         # Decode HTML entities
         text = html.unescape(text)
 
         # Remove remaining HTML tags
-        text = re.sub(r'\u003c[^\u003e]+\u003e', '', text)
+        text = re.sub(r'<[^>]+>', '', text)
 
         return text.strip()
     

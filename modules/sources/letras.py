@@ -60,7 +60,7 @@ class LetrasFetcher(BaseLyricsFetcher):
         if match:
             return match.group(1)
         
-        return None
+        return ""
 
     def _is_valid_lyrics(self, content: str) -> bool:
         """Check if content looks like actual lyrics."""
@@ -88,26 +88,51 @@ class LetrasFetcher(BaseLyricsFetcher):
             return ""
 
         text = html.unescape(content)
-        text = re.sub(r"<[^>]+>", "", text)
+        # Preserve line breaks from HTML
+        text = re.sub(r'\s*<br\s*/?\>\s*', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*</p>\s*', '\n\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', '', text)
         
-        # Remove UI elements
-        ui_patterns = [
-            r"Add to favorites.*?Add to Playlist",
-            r"Font size.*?Tab.*?Print.*?Correct.*?Auto-scroll.*?Notes",
-            r"Enabled.*?Disabled",
-            r"Do you know who is the songwriter.*?Send us their name\.",
-            r"Sent by.*?Did you see an error.*?Send us your revision\.",
-            r"RestoreApply",
-            r"lyrics views \d+",
-            r"Are You Listening.*?Lyrics.*?Translations",
+        # Fix case where metadata and first line are concatenated
+        # Pattern: metadata words followed by actual lyric line
+        # Remove common metadata patterns from start of lines
+        metadata_pattern = r'^(lyrics views[\d\s\.]*|Numb|Linkin Park|Lyrics|Meaning|Translations)*\s*'
+        lines = text.split('\n')
+        cleaned = []
+        for line in lines:
+            # Remove leading metadata words
+            clean_line = re.sub(metadata_pattern, '', line, flags=re.IGNORECASE).strip()
+            if clean_line:
+                cleaned.append(clean_line)
+        text = '\n'.join(cleaned)
+        
+        # Remove credits and trailing metadata
+        skip_line_patterns = [
+            r'^Written by:',
+            r'^Subtitled by',
+            r'^Revised by',
+            r'^Did you see an error',
+            r"^Isn't this right",
+            r'Bourdon / Brad Delson',
         ]
         
-        for pattern in ui_patterns:
-            text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
+        lines = text.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Skip credit lines
+            if any(re.search(pattern, stripped, re.IGNORECASE) for pattern in skip_line_patterns):
+                continue
+            cleaned_lines.append(stripped)
         
-        # Fix formatting
-        text = re.sub(r"([.!?])([A-Z])", r"\1\n\2", text)
-        text = re.sub(r"(\s*)(\[.+?\])", r"\n\2", text)
+        text = '\n'.join(cleaned_lines)
+        
+        # Fix formatting - ensure parentheses are on their own lines
+        text = re.sub(r'\s*\(\s*', '\n(', text)
+        text = re.sub(r'\s*\)\s*', ')\n', text)
+        text = re.sub(r"(\S)(\[.+?\])", r"\1\n\2", text)
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         
         # Clean up lines

@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Unit tests for lyrics download and translation."""
 
+import io
 import sys
 from pathlib import Path
+
+# Fix Windows encoding
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -72,7 +78,7 @@ def test_manager():
     try:
         result = manager.fetch_lyrics(TEST_ARTIST, TEST_SONG)
         
-        if result.success:
+        if result.success and result.lyrics:
             print(f"  OK: Got lyrics from {result.source}")
             print(f"  Length: {len(result.lyrics)} chars")
             return result.lyrics
