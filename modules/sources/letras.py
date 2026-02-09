@@ -102,7 +102,8 @@ class LetrasFetcher(BaseLyricsFetcher):
         for line in lines:
             # Remove leading metadata words
             clean_line = re.sub(metadata_pattern, '', line, flags=re.IGNORECASE).strip()
-            if clean_line:
+            # Keep empty lines (paragraph breaks)
+            if clean_line or line.strip() == '':
                 cleaned.append(clean_line)
         text = '\n'.join(cleaned)
         
@@ -120,7 +121,9 @@ class LetrasFetcher(BaseLyricsFetcher):
         cleaned_lines = []
         for line in lines:
             stripped = line.strip()
+            # Keep empty lines (paragraph breaks)
             if not stripped:
+                cleaned_lines.append('')
                 continue
             # Skip credit lines
             if any(re.search(pattern, stripped, re.IGNORECASE) for pattern in skip_line_patterns):
@@ -135,7 +138,7 @@ class LetrasFetcher(BaseLyricsFetcher):
         text = re.sub(r"(\S)(\[.+?\])", r"\1\n\2", text)
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         
-        # Clean up lines
+        # Clean up lines but preserve paragraph breaks (double newlines = paragraph separator)
         lines = text.split("\n")
         cleaned_lines = []
         prev_empty = False
@@ -143,6 +146,7 @@ class LetrasFetcher(BaseLyricsFetcher):
         for line in lines:
             stripped = line.strip()
             if not stripped:
+                # Mark paragraph break with empty line
                 if not prev_empty:
                     cleaned_lines.append("")
                     prev_empty = True
