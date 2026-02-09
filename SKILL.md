@@ -9,7 +9,8 @@ description: Search and download lyrics from multiple sources (Genius, AZLyrics,
 
 This skill helps you download song lyrics from multiple sources and translate them to Chinese.
 
-**Version**: 2.0.0  
+**Version**: 2.0.1  
+**New in v2.0.1**: Fixed lyrics formatting with proper line breaks and paragraph separation  
 **New in v2.0**: Multi-source search, proxy support, YouTube lyrics extraction
 
 ### Features
@@ -256,6 +257,7 @@ lyrics-download-and-translate/
 
 ## Version History
 
+- **v2.0.1** (2026-02-09): Fixed lyrics formatting with proper line breaks and paragraph separation, improved Google Translate proxy support
 - **v2.0** (2026-02-09): Multi-source support, proxy configuration, YouTube source
 - **v1.1** (2026-02-08): Bug fixes, retry mechanism, encoding fixes
 - **v1.0** (2026-02-07): Initial release

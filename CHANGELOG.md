@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-02-09
+
+### 🐛 Bug Fixes
+
+#### Lyrics Format
+- **Fixed line breaks**: Properly preserve `<br>` and `<p>` tags from HTML
+- **Paragraph separation**: Empty lines now correctly separate lyric sections
+- **Metadata cleanup**: Better removal of UI elements without breaking structure
+
+#### Translation
+- **Proxy support**: Google Translator now correctly uses proxy from config
+- **Empty lines**: Translation output preserves paragraph breaks
+
+### 🔧 Improvements
+
+- Better HTML parsing for Letras.com source
+- Preserved double newlines as paragraph separators
+- Cleaner lyrics extraction logic
+
+---
+
 ## [2.0.0] - 2026-02-09
 
 ### 🎉 Release Highlights
